@@ -1,0 +1,50 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '8.x'
+    displayName: 'Use .NET 8 SDK'
+
+  - script: |
+      dotnet restore
+      dotnet build --configuration $(buildConfiguration)
+    displayName: 'Restore and Build'
+
+  - script: |
+      dotnet test --configuration $(buildConfiguration) --no-build --logger trx
+    displayName: 'Run Tests'
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'VSTest'
+      testResultsFiles: '**/*.trx'
+      failTaskOnFailedTests: true
+    displayName: 'Publish Test Results'
+    condition: succeededOrFailed()
+
+  - script: |
+      dotnet publish --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)
+    displayName: 'Publish Application'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+    displayName: 'Publish Artifacts'
+
+  - task: AzureWebApp@1
+    displayName: 'Deploy to Azure Web App'
+    inputs:
+      azureSubscription: 'testdevops'  # Replace with your service connection name
+      appType: 'webApp'
+      appName: 'testdemodevops1'  # Your web app name
+      package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
