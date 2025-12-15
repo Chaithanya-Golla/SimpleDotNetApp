@@ -1,0 +1,66 @@
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  azureSubscription: 'test-cicd-svc'
+  webAppName: 'scriptsapp1'
+  packagePath: '$(Build.ArtifactStagingDirectory)/publish'
+
+stages:
+- stage: CI_CD
+  displayName: 'Build & Deploy'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build and Test'
+    steps:
+    - checkout: self
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore packages'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build solution'
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run tests'
+      inputs:
+        command: 'test'
+        projects: '**/*Tests.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish application'
+      inputs:
+        command: 'publish'
+        publishWebProjects: true
+        arguments: '--configuration $(buildConfiguration) --output $(packagePath)'
+        zipAfterPublish: true
+
+    - publish: $(packagePath)
+      displayName: 'Publish artifact'
+      artifact: drop
+
+  - job: DeployJob
+    displayName: 'Deploy to Azure Web App'
+    dependsOn: BuildJob
+    steps:
+    - download: current
+      displayName: 'Download build artifacts'
+      artifact: drop
+
+    - task: AzureWebApp@1
+      displayName: 'Deploy'
+      inputs:
+        azureSubscription: $(azureSubscription)
+        appName: $(webAppName)
+        package: '$(Pipeline.Workspace)/drop/**/*.zip'
