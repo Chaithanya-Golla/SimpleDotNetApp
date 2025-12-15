@@ -7,7 +7,7 @@ pool:
 variables:
   buildConfiguration: 'Release'
   azureSubscription: 'test-cicd-svc'
-  webAppName: 'scriptsapp1'
+  webAppName: 'testdemodevops1'
   packagePath: '$(Build.ArtifactStagingDirectory)/publish'
 
 stages:
